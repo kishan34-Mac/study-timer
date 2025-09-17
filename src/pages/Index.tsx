@@ -46,7 +46,7 @@ const Index = () => {
         {/* Mobile-first responsive layout */}
         <div className="max-w-7xl mx-auto">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            {/* Tab Navigation */}
+            {/* Tab Navigatin */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
