@@ -10,123 +10,72 @@ interface StatsProps {
 
 export function Stats({ sessionCount }: StatsProps) {
   const [dailyStats] = useLocalStorage<DailyStats[]>('daily-stats', []);
-
   const today = new Date().toDateString();
-  const todayStats = dailyStats.find(stat => stat.date === today) || {
-    date: today,
-    completedSessions: sessionCount,
-    totalFocusTime: sessionCount * 25, // Assuming 25 min sessions
-    tasksCompleted: 0,
-  };
+
+  const todayStats =
+    dailyStats.find(stat => stat.date === today) ?? {
+      date: today,
+      completedSessions: sessionCount,
+      totalFocusTime: sessionCount * 25,
+      tasksCompleted: 0,
+    };
 
   const weekStats = dailyStats
-    .filter(stat => {
-      const statDate = new Date(stat.date);
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      return statDate >= weekAgo;
-    })
+    .filter(stat => new Date(stat.date) >= new Date(Date.now() - 7 * 86400000))
     .reduce(
-      (acc, stat) => ({
-        sessions: acc.sessions + stat.completedSessions,
-        focusTime: acc.focusTime + stat.totalFocusTime,
-        tasks: acc.tasks + stat.tasksCompleted,
+      (a, s) => ({
+        sessions: a.sessions + s.completedSessions,
+        focusTime: a.focusTime + s.totalFocusTime,
+        tasks: a.tasks + s.tasksCompleted,
       }),
       { sessions: 0, focusTime: 0, tasks: 0 }
     );
 
-  // ✅ Define fixed Tailwind color mappings
-  const colorVariants: Record<string, { border: string; bg: string; hoverBg: string; text: string }> = {
-    primary: {
-      border: 'hover:border-primary/30',
-      bg: 'bg-primary/10',
-      hoverBg: 'group-hover:bg-primary/20',
-      text: 'text-primary',
-    },
-    accent: {
-      border: 'hover:border-accent/30',
-      bg: 'bg-accent/10',
-      hoverBg: 'group-hover:bg-accent/20',
-      text: 'text-accent',
-    },
-    break: {
-      border: 'hover:border-pink-500/30',
-      bg: 'bg-pink-500/10',
-      hoverBg: 'group-hover:bg-pink-500/20',
-      text: 'text-pink-500',
-    },
-  };
+  const variants = {
+    primary: { border: 'hover:border-primary/30', bg: 'bg-primary/10 group-hover:bg-primary/20', text: 'text-primary' },
+    accent: { border: 'hover:border-accent/30', bg: 'bg-accent/10 group-hover:bg-accent/20', text: 'text-accent' },
+    break: { border: 'hover:border-pink-500/30', bg: 'bg-pink-500/10 group-hover:bg-pink-500/20', text: 'text-pink-500' },
+  } as const;
 
   const stats = [
-    {
-      label: "Today's Sessions",
-      value: todayStats.completedSessions,
-      icon: Target,
-      color: 'primary',
-      description: 'Completed focus sessions',
-    },
-    {
-      label: "Focus Time Today",
-      value: `${Math.floor(todayStats.totalFocusTime / 60)}h ${todayStats.totalFocusTime % 60}m`,
-      icon: Clock,
-      color: 'accent',
-      description: 'Time spent in focus mode',
-    },
-    {
-      label: "Tasks Completed",
-      value: todayStats.tasksCompleted,
-      icon: CheckCircle,
-      color: 'accent',
-      description: 'Tasks marked as done',
-    },
-    {
-      label: "Weekly Sessions",
-      value: weekStats.sessions,
-      icon: TrendingUp,
-      color: 'break',
-      description: 'Total sessions this week',
-    },
+    { label: "Today's Sessions", value: todayStats.completedSessions, icon: Target, color: 'primary', desc: 'Completed focus sessions' },
+    { label: "Focus Time Today", value: `${Math.floor(todayStats.totalFocusTime / 60)}h ${todayStats.totalFocusTime % 60}m`, icon: Clock, color: 'accent', desc: 'Time spent in focus mode' },
+    { label: "Tasks Completed", value: todayStats.tasksCompleted, icon: CheckCircle, color: 'accent', desc: 'Tasks marked as done' },
+    { label: "Weekly Sessions", value: weekStats.sessions, icon: TrendingUp, color: 'break', desc: 'Total sessions this week' },
   ];
 
   return (
     <Card className="p-6 shadow-study-md border-0 bg-gradient-subtle">
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-foreground">Your Progress</h2>
+        <h2 className="text-xl font-semibold">Your Progress</h2>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <div className="h-2 w-2 bg-accent rounded-full animate-pulse" />
-          Live tracking
+          <div className="h-2 w-2 bg-accent rounded-full animate-pulse" /> Live tracking
         </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {stats.map((stat, index) => {
-          const Icon = stat.icon;
-          const variant = colorVariants[stat.color];
-
+        {stats.map(({ label, value, icon: Icon, color, desc }, i) => {
+          const v = variants[color];
           return (
             <motion.div
-              key={stat.label}
+              key={label}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1, duration: 0.5 }}
-              className={`p-4 rounded-lg bg-card border border-border/50 ${variant.border} transition-all duration-300 group hover:shadow-study-sm`}
+              transition={{ delay: i * 0.1, duration: 0.5 }}
+              className={`p-4 rounded-lg bg-card border border-border/50 ${v.border} transition-all group hover:shadow-study-sm`}
             >
               <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <p className="text-sm text-muted-foreground mb-1">{stat.label}</p>
-                  <motion.p
-                    key={stat.value}
-                    initial={{ scale: 0.8 }}
-                    animate={{ scale: 1 }}
-                    className="text-2xl font-bold text-foreground mb-2"
-                  >
-                    {stat.value}
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">{label}</p>
+                  <motion.p key={value} initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="text-2xl font-bold mb-2">
+                    {value}
                   </motion.p>
-                  <p className="text-xs text-muted-foreground">{stat.description}</p>
+                  <p className="text-xs text-muted-foreground">{desc}</p>
                 </div>
-                <div className={`p-2 rounded-lg ${variant.bg} ${variant.hoverBg} transition-colors`}>
-                  <Icon className={`h-5 w-5 ${variant.text}`} />
+                <div className={`p-2 rounded-lg ${v.bg} transition-colors`}>
+                  <Icon className={`h-5 w-5 ${v.text}`} />
                 </div>
               </div>
             </motion.div>
@@ -134,10 +83,10 @@ export function Stats({ sessionCount }: StatsProps) {
         })}
       </div>
 
-      {/* Weekly Progress Indicator */}
+      {/* Weekly Progress */}
       <div className="mt-6 pt-6 border-t border-border/50">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium text-foreground">Weekly Goal Progress</span>
+          <span className="text-sm font-medium">Weekly Goal Progress</span>
           <span className="text-sm text-muted-foreground">{weekStats.sessions}/20 sessions</span>
         </div>
         <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
@@ -145,13 +94,11 @@ export function Stats({ sessionCount }: StatsProps) {
             initial={{ width: 0 }}
             animate={{ width: `${Math.min((weekStats.sessions / 20) * 100, 100)}%` }}
             transition={{ duration: 1, ease: "easeOut" }}
-            className="h-full bg-gradient-primary rounded-full shadow-sm"
+            className="h-full bg-gradient-primary rounded-full"
           />
         </div>
         <p className="text-xs text-muted-foreground mt-2 text-center">
-          {weekStats.sessions >= 20
-            ? '🎉 Weekly goal achieved!'
-            : `${20 - weekStats.sessions} more sessions to reach your weekly goal`}
+          {weekStats.sessions >= 20 ? '🎉 Weekly goal achieved!' : `${20 - weekStats.sessions} more sessions to reach your weekly goal`}
         </p>
       </div>
     </Card>
