@@ -10,7 +10,7 @@ interface StatsProps {
 
 export function Stats({ sessionCount }: StatsProps) {
   const [dailyStats] = useLocalStorage<DailyStats[]>('daily-stats', []);
-  
+
   const today = new Date().toDateString();
   const todayStats = dailyStats.find(stat => stat.date === today) || {
     date: today,
@@ -34,6 +34,28 @@ export function Stats({ sessionCount }: StatsProps) {
       }),
       { sessions: 0, focusTime: 0, tasks: 0 }
     );
+
+  // ✅ Define fixed Tailwind color mappings
+  const colorVariants: Record<string, { border: string; bg: string; hoverBg: string; text: string }> = {
+    primary: {
+      border: 'hover:border-primary/30',
+      bg: 'bg-primary/10',
+      hoverBg: 'group-hover:bg-primary/20',
+      text: 'text-primary',
+    },
+    accent: {
+      border: 'hover:border-accent/30',
+      bg: 'bg-accent/10',
+      hoverBg: 'group-hover:bg-accent/20',
+      text: 'text-accent',
+    },
+    break: {
+      border: 'hover:border-pink-500/30',
+      bg: 'bg-pink-500/10',
+      hoverBg: 'group-hover:bg-pink-500/20',
+      text: 'text-pink-500',
+    },
+  };
 
   const stats = [
     {
@@ -76,16 +98,19 @@ export function Stats({ sessionCount }: StatsProps) {
         </div>
       </div>
 
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {stats.map((stat, index) => {
           const Icon = stat.icon;
+          const variant = colorVariants[stat.color];
+
           return (
             <motion.div
               key={stat.label}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1, duration: 0.5 }}
-              className={`p-4 rounded-lg bg-card border border-border/50 hover:border-${stat.color}/30 transition-all duration-300 group hover:shadow-study-sm`}
+              className={`p-4 rounded-lg bg-card border border-border/50 ${variant.border} transition-all duration-300 group hover:shadow-study-sm`}
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -100,8 +125,8 @@ export function Stats({ sessionCount }: StatsProps) {
                   </motion.p>
                   <p className="text-xs text-muted-foreground">{stat.description}</p>
                 </div>
-                <div className={`p-2 rounded-lg bg-${stat.color}/10 group-hover:bg-${stat.color}/20 transition-colors`}>
-                  <Icon className={`h-5 w-5 text-${stat.color}`} />
+                <div className={`p-2 rounded-lg ${variant.bg} ${variant.hoverBg} transition-colors`}>
+                  <Icon className={`h-5 w-5 ${variant.text}`} />
                 </div>
               </div>
             </motion.div>
@@ -124,7 +149,9 @@ export function Stats({ sessionCount }: StatsProps) {
           />
         </div>
         <p className="text-xs text-muted-foreground mt-2 text-center">
-          {weekStats.sessions >= 20 ? '🎉 Weekly goal achieved!' : `${20 - weekStats.sessions} more sessions to reach your weekly goal`}
+          {weekStats.sessions >= 20
+            ? '🎉 Weekly goal achieved!'
+            : `${20 - weekStats.sessions} more sessions to reach your weekly goal`}
         </p>
       </div>
     </Card>
