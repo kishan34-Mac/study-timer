@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
-import { TimerState, TimerMode, TimerSettings } from '@/types';
-import { useLocalStorage } from './useLocalStorage';
+import { useState, useEffect, useRef } from "react";
+import { TimerState, TimerMode, TimerSettings } from "@/types";
+import { useLocalStorage } from "./useLocalStorage";
 
 const DEFAULT_SETTINGS: TimerSettings = {
   focusTime: 25,
@@ -9,75 +9,89 @@ const DEFAULT_SETTINGS: TimerSettings = {
   longBreakInterval: 4,
 };
 
+const NOTIFICATION_MESSAGES: Record<TimerMode, string> = {
+  focus: "🎉 Focus session completed! Time for a break.",
+  shortBreak: "💪 Break over! Ready for another focus session?",
+  longBreak: "🚀 Long break finished! Ready to get back to work?",
+};
+
 export function useTimer() {
-  const [settings] = useLocalStorage<TimerSettings>('timer-settings', DEFAULT_SETTINGS);
+  const [settings] = useLocalStorage<TimerSettings>(
+    "timer-settings",
+    DEFAULT_SETTINGS
+  );
+
   const [timerState, setTimerState] = useState<TimerState>({
-    mode: 'focus',
+    mode: "focus",
     timeLeft: settings.focusTime * 60,
     isRunning: false,
     sessionCount: 0,
     currentTask: null,
   });
 
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Update timer when settings change
+  // Sync timer when settings or mode changes (only if not running)
   useEffect(() => {
     if (!timerState.isRunning) {
-      const newTime = getTimeForMode(timerState.mode, settings);
-      setTimerState(prev => ({ ...prev, timeLeft: newTime }));
+      setTimerState((prev) => ({
+        ...prev,
+        timeLeft: getTimeForMode(timerState.mode, settings),
+      }));
     }
   }, [settings, timerState.mode, timerState.isRunning]);
 
-  // Timer countdown logic
+  // Timer countdown
   useEffect(() => {
     if (timerState.isRunning && timerState.timeLeft > 0) {
       intervalRef.current = setInterval(() => {
-        setTimerState(prev => {
+        setTimerState((prev) => {
           if (prev.timeLeft <= 1) {
-            // Timer finished
-            const isBreakMode = prev.mode !== 'focus';
-            const newSessionCount = isBreakMode ? prev.sessionCount : prev.sessionCount + 1;
-            const nextMode = getNextMode(prev.mode, newSessionCount, settings.longBreakInterval);
-            
-            // Show notification
-            showNotification(prev.mode);
-            
+            const isBreak = prev.mode !== "focus";
+            const newSessionCount = isBreak
+              ? prev.sessionCount
+              : prev.sessionCount + 1;
+            const nextMode = getNextMode(
+              prev.mode,
+              newSessionCount,
+              settings.longBreakInterval
+            );
+
+            triggerNotification(prev.mode);
+
             return {
               ...prev,
+              mode: nextMode,
               timeLeft: getTimeForMode(nextMode, settings),
               isRunning: false,
-              mode: nextMode,
               sessionCount: newSessionCount,
             };
           }
           return { ...prev, timeLeft: prev.timeLeft - 1 };
         });
       }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
     }
 
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
-  }, [timerState.isRunning, timerState.timeLeft, settings]);
+  }, [timerState.isRunning, settings]);
 
   const startTimer = () => {
-    setTimerState(prev => ({ ...prev, isRunning: true }));
+    if (!timerState.isRunning) {
+      setTimerState((prev) => ({ ...prev, isRunning: true }));
+    }
   };
 
   const pauseTimer = () => {
-    setTimerState(prev => ({ ...prev, isRunning: false }));
+    setTimerState((prev) => ({ ...prev, isRunning: false }));
   };
 
   const resetTimer = () => {
-    setTimerState(prev => ({
+    setTimerState((prev) => ({
       ...prev,
       isRunning: false,
       timeLeft: getTimeForMode(prev.mode, settings),
@@ -85,7 +99,7 @@ export function useTimer() {
   };
 
   const switchMode = (mode: TimerMode) => {
-    setTimerState(prev => ({
+    setTimerState((prev) => ({
       ...prev,
       mode,
       timeLeft: getTimeForMode(mode, settings),
@@ -94,7 +108,7 @@ export function useTimer() {
   };
 
   const setCurrentTask = (taskId: string | null) => {
-    setTimerState(prev => ({ ...prev, currentTask: taskId }));
+    setTimerState((prev) => ({ ...prev, currentTask: taskId }));
   };
 
   return {
@@ -110,11 +124,11 @@ export function useTimer() {
 
 function getTimeForMode(mode: TimerMode, settings: TimerSettings): number {
   switch (mode) {
-    case 'focus':
+    case "focus":
       return settings.focusTime * 60;
-    case 'shortBreak':
+    case "shortBreak":
       return settings.shortBreak * 60;
-    case 'longBreak':
+    case "longBreak":
       return settings.longBreak * 60;
     default:
       return settings.focusTime * 60;
@@ -126,28 +140,26 @@ function getNextMode(
   sessionCount: number,
   longBreakInterval: number
 ): TimerMode {
-  if (currentMode === 'focus') {
-    return sessionCount % longBreakInterval === 0 ? 'longBreak' : 'shortBreak';
+  if (currentMode === "focus") {
+    return sessionCount % longBreakInterval === 0 ? "longBreak" : "shortBreak";
   }
-  return 'focus';
+  return "focus";
 }
 
-function showNotification(completedMode: TimerMode) {
-  if ('Notification' in window && Notification.permission === 'granted') {
-    const messages = {
-      focus: '🎉 Focus session completed! Time for a break.',
-      shortBreak: '💪 Break over! Ready for another focus session?',
-      longBreak: '🚀 Long break finished! Ready to get back to work?',
-    };
-    
-    new Notification('Study Timer', {
-      body: messages[completedMode],
-      icon: '/favicon.ico',
+function triggerNotification(completedMode: TimerMode) {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+
+  if (Notification.permission === "granted") {
+    new Notification("Study Timer", {
+      body: NOTIFICATION_MESSAGES[completedMode],
+      icon: "/favicon.ico",
     });
   }
 }
 
-// Request notification permission on load
-if ('Notification' in window && Notification.permission === 'default') {
-  Notification.requestPermission();
+// Request notification permission once on load
+if (typeof window !== "undefined" && "Notification" in window) {
+  if (Notification.permission === "default") {
+    Notification.requestPermission();
+  }
 }
